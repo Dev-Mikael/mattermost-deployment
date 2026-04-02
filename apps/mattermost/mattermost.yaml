@@ -1,0 +1,79 @@
+# apps/mattermost/mattermost.yaml
+# This is the Mattermost Custom Resource (CR) — the instruction given to the
+# Mattermost Operator telling it how to deploy Mattermost.
+#
+# FIXES APPLIED:
+#   1. Removed spec.resources — not a valid field in this operator version
+#   2. Removed spec.ingress.ingressClassName — not in schema; use annotation instead
+#   3. Removed nginx configuration-snippet annotation — disabled by NGINX webhook
+#   4. Removed fileStore.operatorManaged — requires MinIO Operator CRD (not installed)
+#   5. Used fileStore.external pointing to standalone MinIO deployment
+#   6. MinIO URL has NO http:// prefix — operator adds the scheme internally
+#   7. Uses kubernetes.io/ingress.class annotation (deprecated but works with this operator)
+apiVersion: installation.mattermost.com/v1beta1
+kind: Mattermost
+metadata:
+  name: mattermost
+  namespace: mattermost
+spec:
+  # ── Sizing preset ──────────────────────────────────────────
+  # Presets: 100users | 1000users | 5000users | 10000users | 25000users
+  size: 100users
+
+  # ── Image (pinned for GitOps reproducibility) ─────────────
+  image: mattermost/mattermost-team-edition
+  version: "9.11.0"
+
+  # ── Ingress ────────────────────────────────────────────────
+  # ${DOMAIN} is substituted by Flux postBuild from cluster-values ConfigMap
+  ingress:
+    enabled: true
+    host: ${DOMAIN}
+    annotations:
+      # FIX: Use deprecated annotation — spec.ingress.ingressClassName is not
+      # in this operator version's schema and causes a dry-run failure
+      kubernetes.io/ingress.class: nginx
+      # TLS certificate via cert-manager + Let's Encrypt
+      # For kind/local: comment out this annotation (no real cert possible)
+      # For on-prem:    keep this — real TLS cert will be issued automatically
+      cert-manager.io/cluster-issuer: letsencrypt-prod
+      nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+      nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+      nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+      # FIX: configuration-snippet annotation is REMOVED.
+      # It is blocked by the NGINX admission webhook by default.
+      # WebSocket support is handled via global NGINX config in the HelmRelease.
+    tlsSecret: mattermost-tls
+
+  # ── Database ───────────────────────────────────────────────
+  # Points to the SealedSecret which decrypts to a Secret containing
+  # DB_CONNECTION_STRING used by the Mattermost pod
+  database:
+    external:
+      secret: mattermost-db-credentials
+
+  # ── File Storage ───────────────────────────────────────────
+  # FIX: operatorManaged is REMOVED — it requires the MinIO Operator CRD
+  # which we are not installing. Instead we point to our standalone MinIO.
+  # FIX: URL has NO http:// prefix — the operator adds the scheme itself.
+  #      Using http:// caused: "Endpoint url cannot have fully qualified paths"
+  fileStore:
+    external:
+      url: minio.mattermost.svc.cluster.local:9000
+      bucket: mattermost
+      secret: mattermost-minio-credentials
+
+  # ── App environment variables ─────────────────────────────
+  mattermostEnv:
+    - name: MM_SERVICESETTINGS_SITEURL
+      value: "https://${DOMAIN}"
+    - name: MM_LOGSETTINGS_CONSOLELEVEL
+      value: "INFO"
+    - name: MM_EMAILSETTINGS_ENABLESIGNINWITHEMAIL
+      value: "true"
+    - name: MM_EMAILSETTINGS_ENABLESIGNINWITHUSERNAME
+      value: "true"
+    - name: MM_SERVICESETTINGS_ENABLEBOTACCOUNTCREATION
+      value: "true"
+    - name: MM_FILESETTINGS_AMAZONS3SSL
+      value: "false"   # MinIO is internal HTTP — no SSL needed inside cluster
