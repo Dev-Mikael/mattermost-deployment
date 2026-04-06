@@ -52,10 +52,18 @@ PF_PID=$!
 trap 'kill $PF_PID 2>/dev/null || true' EXIT
 
 # Wait for port-forward to be ready
-sleep 3
+# Wait for port-forward to be ready — longer wait for real servers
+sleep 8
 
-# Fetch cert via curl (stderr goes to /dev/null to avoid polluting the file)
-curl -s http://localhost:8080/v1/cert.pem > "$CERT_FILE" 2>/dev/null
+# Fetch cert with timeout — retries up to 5 times
+for attempt in 1 2 3 4 5; do
+  curl -s --max-time 10 --retry 3 http://localhost:8080/v1/cert.pem > "$CERT_FILE" 2>/dev/null
+  if grep -q "BEGIN CERTIFICATE" "$CERT_FILE" 2>/dev/null; then
+    break
+  fi
+  log_info "Cert fetch attempt $attempt failed, retrying in 5s..."
+  sleep 5
+done
 
 # Verify cert is valid
 if ! grep -q "BEGIN CERTIFICATE" "$CERT_FILE" 2>/dev/null; then
