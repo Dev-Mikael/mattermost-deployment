@@ -70,9 +70,13 @@ apt-mark hold kubelet kubeadm kubectl
 log_ok "kubeadm/kubelet/kubectl installed"
 
 # 5. kubeadm init
+# 5. kubeadm init
 log_step "Initialising Kubernetes cluster"
+PRIVATE_IP=$(hostname -I | awk '{print $1}')
+log_info "Private IP: ${PRIVATE_IP} | Public/Elastic IP: ${SERVER_IP}"
 kubeadm init \
-  --apiserver-advertise-address="${SERVER_IP}" \
+  --apiserver-advertise-address="${PRIVATE_IP}" \
+  --apiserver-cert-extra-sans="${SERVER_IP},${PRIVATE_IP}" \
   --pod-network-cidr="10.244.0.0/16" \
   --kubernetes-version="v${K8S_VERSION}.0" \
   | tee /tmp/kubeadm-init.log
