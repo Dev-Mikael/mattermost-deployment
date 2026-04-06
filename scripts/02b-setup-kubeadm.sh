@@ -87,6 +87,14 @@ mkdir -p "$HOME/.kube"
 cp /etc/kubernetes/admin.conf "$HOME/.kube/config"
 chown "$(id -u):$(id -g)" "$HOME/.kube/config"
 
+# FIX: Replace private IP with Elastic IP in kubeconfig so external
+# kubectl access works without manual editing.
+# On AWS EC2 the Elastic IP is not on the interface so kubeadm uses
+# the private IP — we patch it to the public Elastic IP here.
+sed -i "s|server: https://${PRIVATE_IP}:6443|server: https://${SERVER_IP}:6443|" \
+  "$HOME/.kube/config"
+log_ok "kubeconfig patched: server set to ${SERVER_IP}:6443"
+
 # 7. Remove control-plane taint (single-node)
 kubectl taint nodes --all node-role.kubernetes.io/control-plane- || true
 log_ok "Control-plane taint removed"
@@ -94,6 +102,13 @@ log_ok "Control-plane taint removed"
 # 8. Install Flannel CNI
 kubectl apply -f https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml
 log_ok "Flannel CNI applied"
+
+# 8b. Install local-path-provisioner (default StorageClass for kubeadm)
+log_step "Installing local-path-provisioner (default StorageClass)"
+kubectl apply -f https://raw.githubusercontent.com/rancher/local-path-provisioner/master/deploy/local-path-storage.yaml
+kubectl patch storageclass local-path \
+  -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
+log_ok "Default StorageClass (local-path) installed"
 
 # 9. Wait for node Ready
 kubectl wait node --all --for condition=Ready --timeout=180s
@@ -113,8 +128,11 @@ if [[ -n "${SUDO_USER:-}" ]]; then
   USER_HOME=$(getent passwd "$SUDO_USER" | cut -d: -f6)
   mkdir -p "$USER_HOME/.kube"
   cp /etc/kubernetes/admin.conf "$USER_HOME/.kube/config"
+  # Patch private IP → Elastic IP in user kubeconfig too
+  sed -i "s|server: https://${PRIVATE_IP}:6443|server: https://${SERVER_IP}:6443|" \
+    "$USER_HOME/.kube/config"
   chown -R "$SUDO_USER:$SUDO_USER" "$USER_HOME/.kube"
-  log_ok "kubeconfig copied for user $SUDO_USER"
+  log_ok "kubeconfig copied and patched for user $SUDO_USER"
 fi
 
 log_section "kubeadm cluster ready"
