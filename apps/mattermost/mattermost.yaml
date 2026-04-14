@@ -65,6 +65,23 @@ spec:
   mattermostEnv:
     - name: MM_SERVICESETTINGS_SITEURL
       value: "https://${DOMAIN}"
+
+    # Push notifications — ADD THESE FOUR
+    - name: MM_EMAILSETTINGS_SENDPUSHNOTIFICATIONS
+      value: "true"
+    - name: MM_EMAILSETTINGS_PUSHNOTIFICATIONSERVER
+      value: "https://push.mattermost.com"
+    - name: MM_EMAILSETTINGS_PUSHNOTIFICATIONCONTENTS
+      value: "full"
+    - name: MM_EMAILSETTINGS_PUSHNOTIFICATIONBUFFER
+      value: "1000"   # queue size — default is fine, set explicitly
+
+  # Notification triggers — ADD THESE
+    - name: MM_NOTIFICATIONSETTINGS_DESKTOPNOTIFICATION
+      value: "true"
+    - name: MM_NOTIFICATIONSETTINGS_MOBILEPUSHNOTIFICATION
+      value: "true"
+       # Your existing settings
     - name: MM_LOGSETTINGS_CONSOLELEVEL
       value: "INFO"
     - name: MM_EMAILSETTINGS_ENABLESIGNINWITHEMAIL
@@ -75,3 +92,26 @@ spec:
       value: "true"
     - name: MM_FILESETTINGS_AMAZONS3SSL
       value: "false"   # MinIO is internal HTTP — no SSL needed inside cluster
+
+#config also has no SMTP settings, which means email notifications (password resets, account verification, notifications will not be functional
+# - name: MM_EMAILSETTINGS_ENABLESMTPAUTH
+#   value: "true"
+# - name: MM_EMAILSETTINGS_SMTPSERVER
+#   value: "smtp.your-provider.com"
+# - name: MM_EMAILSETTINGS_SMTPPORT
+#   value: "587"
+# - name: MM_EMAILSETTINGS_SMTPUSERNAME
+#   valueFrom:
+#     secretKeyRef:
+#       name: mattermost-smtp-credentials
+#       key: username
+# - name: MM_EMAILSETTINGS_SMTPPASSWORD
+#   valueFrom:
+#     secretKeyRef:
+#       name: mattermost-smtp-credentials
+#       key: password
+# - name: MM_EMAILSETTINGS_FEEDBACKEMAIL
+#   value: "noreply@${DOMAIN}"
+# - name: MM_EMAILSETTINGS_REPLYTOADDRESS
+#   value: "noreply@${DOMAIN}"
+#Store the SMTP credentials as a SealedSecret using the same sealing process in scripts/04-wait-and-seal.sh
