@@ -6,6 +6,6 @@ metadata:
   namespace: flux-system
 data:
   DOMAIN: "modumichael.me"
-  SERVER_IP: "100.51.92.129"
-  LETSENCRYPT_EMAIL: "modumichael138@gmail.com"
+  SERVER_IP: "127.0.0.1"
+  LETSENCRYPT_EMAIL: "admin@modumichael.me"
   CLUSTER_NAME: "production"
