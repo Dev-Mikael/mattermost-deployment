@@ -16,6 +16,12 @@ metadata:
   name: mattermost
   namespace: mattermost
 spec:
+  # "100users" sets replicas=1 which is correct for a single-node cluster.
+  # It does NOT set CPU/memory limits — those are controlled by mattermostEnv
+  # and the resourcePatch below. For t3.medium (2 vCPU, 4GB) this is safe.
+  # ⚠️  Do NOT use t2 instances (t2.medium/t2.large) — they use CPU credits
+  #     which exhaust quickly under sustained load and throttle to ~0.4 vCPU.
+  #     Use t3.medium or t3.large instead (unlimited CPU burst at no extra cost).
   size: 100users
 
   # ── Image (pinned for GitOps reproducibility) ─────────────
